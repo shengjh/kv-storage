@@ -219,9 +219,7 @@ func (s *minioStore) listObjectsKeys(ctx context.Context, key Key, timestamp uin
 		for object := range s.client.ListObjects(ctx, bucketName, minio.ListObjectsOptions{Prefix: string(key)}){
 			if object.Err != nil {
 				fmt.Println(object.Err)
-				objectsCh <- minio.ObjectInfo{
-
-				}
+				objectsCh <- object
 			}
 			splitKey := strings.Split(object.Key, "_")
 			if string(key) == strings.Join(splitKey[:len(splitKey)-1], "_") {
