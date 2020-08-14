@@ -29,7 +29,7 @@ func (s *tikvStore) Name() string {
 	return "TiKV storage"
 }
 
-func (s *tikvStore) Get(ctx context.Context, key Key, timestamp uint64) (Value, error) {
+func (s *tikvStore) Get(ctx context.Context, key Key, timestamp Timestamp) (Value, error) {
 	end := keyAddDelimiter(key)
 	keys, vals, err := s.client.Scan(ctx, MvccEncode(key, timestamp), MvccEncode(end, math.MaxUint64), 1)
 	if err != nil {
@@ -41,13 +41,13 @@ func (s *tikvStore) Get(ctx context.Context, key Key, timestamp uint64) (Value, 
 	return vals[0], err
 }
 
-func (s *tikvStore) Set(ctx context.Context, key Key, v Value, timestamp uint64) error {
+func (s *tikvStore) Set(ctx context.Context, key Key, v Value, timestamp Timestamp) error {
 	codedKey := MvccEncode(key, timestamp)
 	err := s.client.Put(ctx, codedKey, v)
 	return err
 }
 
-func (s *tikvStore) BatchSet(ctx context.Context, keys []Key, v []Value, timestamp uint64) error {
+func (s *tikvStore) BatchSet(ctx context.Context, keys []Key, v []Value, timestamp Timestamp) error {
 	codedKeys := make([]Key, len(keys))
 	for i, key := range keys {
 		codedKeys[i] = MvccEncode(key, timestamp)
@@ -56,7 +56,7 @@ func (s *tikvStore) BatchSet(ctx context.Context, keys []Key, v []Value, timesta
 	return err
 }
 
-func (s *tikvStore) BatchGet(ctx context.Context, keys []Key, timestamp uint64) ([]Value, error) {
+func (s *tikvStore) BatchGet(ctx context.Context, keys []Key, timestamp Timestamp) ([]Value, error) {
 	var key Key
 	var val Value
 	var err error
@@ -72,13 +72,13 @@ func (s *tikvStore) BatchGet(ctx context.Context, keys []Key, timestamp uint64) 
 	return vals, err
 }
 
-func (s *tikvStore) Delete(ctx context.Context, key Key, timestamp uint64) error {
+func (s *tikvStore) Delete(ctx context.Context, key Key, timestamp Timestamp) error {
 	end := keyAddDelimiter(key)
 	err := s.client.DeleteRange(ctx, MvccEncode(key, timestamp), MvccEncode(end, uint64(0)))
 	return err
 }
 
-func (s *tikvStore) BatchDelete(ctx context.Context, keys []Key, timestamp uint64) error {
+func (s *tikvStore) BatchDelete(ctx context.Context, keys []Key, timestamp Timestamp) error {
 	var key Key
 	var err error
 
@@ -98,7 +98,7 @@ type batch struct {
 	values []Value
 }
 
-func (s *tikvStore) BatchDeleteMultiRoutine(ctx context.Context, keys []Key, timestamp uint64) error {
+func (s *tikvStore) BatchDeleteMultiRoutine(ctx context.Context, keys []Key, timestamp Timestamp) error {
 	var key Key
 	var err error
 
@@ -139,11 +139,11 @@ func (s *tikvStore) BatchDeleteMultiRoutine(ctx context.Context, keys []Key, tim
 	return err
 }
 
-func (s *tikvStore) Scan(ctx context.Context, start Key, end Key, limit uint32, timestamp uint64) ([]Key, []Value, error) {
+func (s *tikvStore) Scan(ctx context.Context, start Key, end Key, limit uint32, timestamp Timestamp) ([]Key, []Value, error) {
 	panic("implement me")
 }
 
-func (s *tikvStore) ReverseScan(ctx context.Context, start Key, end Key, limit uint32, timestamp uint64) ([]Key, []Value, error) {
+func (s *tikvStore) ReverseScan(ctx context.Context, start Key, end Key, limit uint32, timestamp Timestamp) ([]Key, []Value, error) {
 	panic("implement me")
 }
 
