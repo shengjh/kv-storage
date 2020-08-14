@@ -25,6 +25,8 @@ var batchValueData [][]byte
 var setCount, getCount, deleteCount, setFailedCount, getFailedCount, deleteFailedCount, keyNum int32
 var batchSetCount, batchGetCount, batchDeleteCount, totalKeyCount int32
 var endTime, setFinish, getFinish, deleteFinish time.Time
+var totalKeys [][]byte
+
 var logFileName = "benchmark.log"
 var logFile *os.File
 
@@ -88,10 +90,16 @@ func runGet() {
 func runBatchGet() {
 	for time.Now().Before(endTime) {
 		num := atomic.AddInt32(&keyNum, int32(batchOpSize))
-		keys := make([][]byte, batchOpSize)
-		for n := batchOpSize; n > 0; n-- {
-			keys[n-1] = []byte(fmt.Sprint("key", num-int32(n)))
+		//keys := make([][]byte, batchOpSize)
+		//for n := batchOpSize; n > 0; n-- {
+		//	keys[n-1] = []byte(fmt.Sprint("key", num-int32(n)))
+		//}
+		end := num % totalKeyCount
+		if end < int32(batchOpSize) {
+			end = int32(batchOpSize)
 		}
+		start := end - int32(batchOpSize)
+		keys := totalKeys[start:end]
 		atomic.AddInt32(&batchGetCount, 1)
 		_, err := store.BatchGet(context.Background(), keys, uint64(numVersion))
 		if err != nil {
@@ -123,10 +131,16 @@ func runDelete() {
 func runBatchDelete() {
 	for time.Now().Before(endTime) {
 		num := atomic.AddInt32(&keyNum, int32(batchOpSize))
-		keys := make([][]byte, batchOpSize)
-		for n := batchOpSize; n > 0; n-- {
-			keys[n-1] = []byte(fmt.Sprint("key", num-int32(n)))
+		//keys := make([][]byte, batchOpSize)
+		//for n := batchOpSize; n > 0; n-- {
+		//	keys[n-1] = []byte(fmt.Sprint("key", num-int32(n)))
+		//}
+		end := num % totalKeyCount
+		if end < int32(batchOpSize) {
+			end = int32(batchOpSize)
 		}
+		start := end - int32(batchOpSize)
+		keys := totalKeys[start:end]
 		atomic.AddInt32(&batchDeleteCount, 1)
 		err := store.BatchDelete(context.Background(), keys, uint64(numVersion))
 		if err != nil {
@@ -245,9 +259,15 @@ func main() {
 		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: BATCH PUT time %.1f secs, batchs = %d, kv pairs = %d, speed = %sB/sec, %.1f operations/sec. Failes = %d \n",
 			loop, setTime, batchSetCount, batchSetCount*int32(batchOpSize), bytefmt.ByteSize(uint64(bps)), float64(batchSetCount)/setTime, setFailedCount))
 
+		// Record all test keys
 		totalKeyCount = setCount + batchSetCount/int32(numVersion)*int32(batchOpSize)
+		totalKeys = make([][]byte, totalKeyCount)
+		for i := int32(0); i < totalKeyCount; i++ {
+			totalKeys[i] = []byte(fmt.Sprint("key", i))
+		}
 
 		// Run the get case
+		keyNum = 0
 		startTime = time.Now()
 		endTime = startTime.Add(time.Second * time.Duration(durationSecs))
 		for n := 1; n <= threads; n++ {
@@ -310,6 +330,11 @@ func main() {
 		lineMark := "\n"
 		fmt.Fprint(logFile, lineMark)
 
-		log.Print("Benchmark test done.")
+		// Clear test data
+		err = store.BatchDelete(context.Background(), totalKeys, uint64(numVersion))
+		if err != nil {
+			log.Print("Clean test data error " + err.Error())
+		}
 	}
+	log.Print("Benchmark test done.")
 }
