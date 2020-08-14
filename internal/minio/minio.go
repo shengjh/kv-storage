@@ -60,25 +60,47 @@ func (s *minioStore) Get(ctx context.Context, key Key, timestamp uint64) (Value,
 			fmt.Println(err)
 			return nil, err
 		}
-		return buf[:n], err
+		return buf[:n], nil
 	}
 
 	return nil, nil
 }
 
 func (s *minioStore) BatchGet(ctx context.Context, keys []Key, timestamp uint64) ([]Value, error) {
-	var values []Value
 
-	for i := 0; i < len(keys); i++ {
-		object, err := s.Get(ctx, keys[i], timestamp)
-		if err != nil && err != io.EOF {
-			fmt.Println(err)
-			values = append(values, nil)
-			return nil, err
-		} else {
-			values = append(values, object)
+	errCh := make(chan error)
+	valueLenth := len(keys)
+	values := make([]Value, valueLenth)
+	f := func(ctx context.Context, keys []Key, values []Value, timestamp uint64) {
+		for i := 0; i < len(keys); i++ {
+			value, err := s.Get(ctx, keys[i], timestamp)
+			values[i] = value
+			errCh <- err
 		}
 	}
+
+	maxThread := 500
+	batchSize := 10
+	if len(keys) / batchSize > maxThread {
+		batchSize = len(keys) / maxThread
+	}
+	for i := 0; i < len(keys)/batchSize + 1; i++ {
+		j := i
+		go func() {
+			start, end := j*batchSize, (j+1)*batchSize
+			if len(keys) < end {
+				end = len(keys)
+			}
+			f(ctx, keys[start:end], values, timestamp)
+		}()
+	}
+
+	for i := 0; i < len(keys); i++ {
+		if err := <- errCh; err != nil {
+			return values, err
+		}
+	}
+
 
 	return values, nil
 }
@@ -99,9 +121,31 @@ func (s *minioStore) Set(ctx context.Context, key Key, v Value, timestamp uint64
 
 func (s *minioStore) BatchSet(ctx context.Context, keys []Key, values []Value, timestamp uint64) error {
 
+	errCh := make(chan error)
+	f := func(ctx context.Context, keys []Key, values []Value, timestamp uint64) {
+		for i := 0; i < len(keys); i++ {
+			errCh <- s.Set(ctx, keys[i], values[i], timestamp)
+		}
+	}
+
+	maxThread := 500
+	batchSize := 10
+	if len(keys) / batchSize > maxThread {
+		batchSize = len(keys) / maxThread
+	}
+	for i := 0; i < len(keys)/batchSize + 1; i++ {
+		j := i
+		go func() {
+			start, end := j*batchSize, (j+1)*batchSize
+			if len(keys) < end {
+				end = len(keys)
+			}
+			f(ctx, keys[start:end], values[start:end], timestamp)
+		}()
+	}
+
 	for i := 0; i < len(keys); i++ {
-		err := s.Set(ctx, keys[i], values[i], timestamp)
-		if err != nil {
+		if err := <- errCh; err != nil {
 			return err
 		}
 	}
@@ -133,10 +177,31 @@ func (s *minioStore) Delete(ctx context.Context, key Key, timestamp uint64) erro
 
 func (s *minioStore) BatchDelete(ctx context.Context, keys []Key, timestamp uint64) error {
 
+	errCh := make(chan error)
+	f := func(ctx context.Context, keys []Key, timestamp uint64) {
+		for i := 0; i < len(keys); i++ {
+			errCh <- s.Delete(ctx, keys[i], timestamp)
+		}
+	}
+
+	maxThread := 500
+	batchSize := 10
+	if len(keys) / batchSize > maxThread {
+		batchSize = len(keys) / maxThread
+	}
+	for i := 0; i < len(keys)/batchSize + 1; i++ {
+		j := i
+		go func() {
+			start, end := j*batchSize, (j+1)*batchSize
+			if len(keys) < end {
+				end = len(keys)
+			}
+			f(ctx, keys[start:end], timestamp)
+		}()
+	}
+
 	for i := 0; i < len(keys); i++ {
-		err := s.Delete(ctx, keys[i], timestamp)
-		if err != nil {
-			fmt.Println(err)
+		if err := <- errCh; err != nil {
 			return err
 		}
 	}
