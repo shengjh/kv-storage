@@ -78,7 +78,7 @@ func (s *tikvStore) Delete(ctx context.Context, key Key, timestamp Timestamp) er
 	return err
 }
 
-func (s *tikvStore) BatchDelete(ctx context.Context, keys []Key, timestamp Timestamp) error {
+func (s *tikvStore) BatchDeleteDeprecated(ctx context.Context, keys []Key, timestamp Timestamp) error {
 	var key Key
 	var err error
 
@@ -98,7 +98,7 @@ type batch struct {
 	values []Value
 }
 
-func (s *tikvStore) BatchDeleteMultiRoutine(ctx context.Context, keys []Key, timestamp Timestamp) error {
+func (s *tikvStore) BatchDelete(ctx context.Context, keys []Key, timestamp Timestamp) error {
 	var key Key
 	var err error
 
