@@ -75,7 +75,9 @@ func runGet() {
 	for time.Now().Before(endTime) {
 		atomic.AddInt32(&getCount, 1)
 		num := atomic.AddInt32(&keyNum, 1)
-		key := []byte(fmt.Sprint("key", num))
+		//key := []byte(fmt.Sprint("key", num))
+		num = num % totalKeyCount
+		key := totalKeys[num]
 		_, err := store.Get(context.Background(), key, uint64(numVersion))
 		if err != nil {
 			log.Fatalf("Error getting key %s, %s", key, err.Error())
@@ -116,7 +118,9 @@ func runDelete() {
 	for time.Now().Before(endTime) {
 		atomic.AddInt32(&deleteCount, 1)
 		num := atomic.AddInt32(&keyNum, 1)
-		key := []byte(fmt.Sprint("key", num))
+		//key := []byte(fmt.Sprint("key", num))
+		num = num % totalKeyCount
+		key := totalKeys[num]
 		err := store.Delete(context.Background(), key, uint64(numVersion))
 		if err != nil {
 			log.Fatalf("Error getting key %s, %s", key, err.Error())
@@ -200,7 +204,7 @@ func main() {
 
 	// Echo the parameters
 	log.Printf("Benchmark log will write to file %s\n", logFile.Name())
-	fmt.Fprint(logFile, fmt.Sprintf("Parameters: duration=%d, threads=%d, loops=%d, valueSize=%s, batchSize=%d,versions=%d\n", durationSecs, threads, loops, sizeArg, batchOpSize, numVersion))
+	fmt.Fprint(logFile, fmt.Sprintf("Parameters: duration=%d, threads=%d, loops=%d, valueSize=%s, batchSize=%d, versions=%d\n", durationSecs, threads, loops, sizeArg, batchOpSize, numVersion))
 
 	// Init test data
 	valueData = make([]byte, valueSize)
@@ -294,7 +298,7 @@ func main() {
 		getTime = getFinish.Sub(startTime).Seconds()
 		bps = float64(uint64(batchGetCount)*valueSize*uint64(batchOpSize)) / getTime
 		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: BATCH GET time %.1f secs, batchs = %d, kv pairs = %d, speed = %sB/sec, %.1f operations/sec. Failes = %d \n",
-			loop, setTime, batchGetCount, batchGetCount*int32(batchOpSize), bytefmt.ByteSize(uint64(bps)), float64(batchGetCount)/setTime, setFailedCount))
+			loop, setTime, batchGetCount, batchGetCount*int32(batchOpSize), bytefmt.ByteSize(uint64(bps)), float64(batchGetCount)/getTime, setFailedCount))
 
 		// Run the delete case
 		keyNum = 0
