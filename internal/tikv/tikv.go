@@ -91,7 +91,7 @@ func (s *tikvStore) BatchDeleteDeprecated(ctx context.Context, keys []Key, times
 	return err
 }
 
-var batchSize = 100
+var batchSize = 1
 
 type batch struct {
 	keys   []Key

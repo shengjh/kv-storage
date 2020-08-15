@@ -225,12 +225,17 @@ func main() {
 
 		// reset counters
 		setCount = 0
+		batchSetCount = 0
 		setFailedCount = 0
 		getCount = 0
+		batchSetCount = 0
 		getFailedCount = 0
 		deleteCount = 0
+		batchDeleteCount = 0
 		deleteFailedCount = 0
 		keyNum = 0
+		totalKeyCount = 0
+		totalKeys = nil
 
 		// Run the set case
 		startTime := time.Now()
@@ -241,6 +246,10 @@ func main() {
 		}
 		wg.Wait()
 
+		if setCount != keyNum{
+			panic("err1")
+		}
+
 		setTime := setFinish.Sub(startTime).Seconds()
 
 		bps := float64(uint64(setCount)*valueSize) / setTime
@@ -249,7 +258,6 @@ func main() {
 
 		// Run the batchSet case
 		// key seq start from setCount
-		keyNum += setCount
 		startTime = time.Now()
 		endTime = startTime.Add(time.Second * time.Duration(durationSecs))
 		for n := 1; n <= threads; n++ {
@@ -258,13 +266,17 @@ func main() {
 		}
 		wg.Wait()
 
+		if keyNum != setCount + int32(batchOpSize) * batchSetCount{
+			panic("err2")
+		}
+
 		setTime = setFinish.Sub(startTime).Seconds()
 		bps = float64(uint64(batchSetCount)*valueSize*uint64(batchOpSize)) / setTime
 		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: BATCH PUT time %.1f secs, batchs = %d, kv pairs = %d, speed = %sB/sec, %.1f operations/sec. Failes = %d \n",
 			loop, setTime, batchSetCount, batchSetCount*int32(batchOpSize), bytefmt.ByteSize(uint64(bps)), float64(batchSetCount)/setTime, setFailedCount))
 
 		// Record all test keys
-		totalKeyCount = setCount + batchSetCount/int32(numVersion)*int32(batchOpSize)
+		totalKeyCount = keyNum
 		totalKeys = make([][]byte, totalKeyCount)
 		for i := int32(0); i < totalKeyCount; i++ {
 			totalKeys[i] = []byte(fmt.Sprint("key", i))
@@ -298,7 +310,7 @@ func main() {
 		getTime = getFinish.Sub(startTime).Seconds()
 		bps = float64(uint64(batchGetCount)*valueSize*uint64(batchOpSize)) / getTime
 		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: BATCH GET time %.1f secs, batchs = %d, kv pairs = %d, speed = %sB/sec, %.1f operations/sec. Failes = %d \n",
-			loop, setTime, batchGetCount, batchGetCount*int32(batchOpSize), bytefmt.ByteSize(uint64(bps)), float64(batchGetCount)/getTime, setFailedCount))
+			loop, getTime, batchGetCount, batchGetCount*int32(batchOpSize), bytefmt.ByteSize(uint64(bps)), float64(batchGetCount)/getTime, setFailedCount))
 
 		// Run the delete case
 		keyNum = 0
