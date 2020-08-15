@@ -7,8 +7,8 @@ import (
 	"github.com/tikv/client-go/config"
 	"math"
 	"os"
-	"testing"
 	. "storage/pkg/types"
+	"testing"
 )
 
 //var store  tikvDriver.tikvStore
@@ -150,7 +150,7 @@ func TestTikvStore_Batch(t *testing.T) {
 	assert.NotNil(t, checkValues)
 	assert.Nil(t, err)
 	assert.Equal(t, len(checkValues), len(testValues))
-	for i := range testKeys{
+	for i := range testKeys {
 		assert.Equal(t, testValues[i], checkValues[i])
 	}
 
@@ -160,7 +160,7 @@ func TestTikvStore_Batch(t *testing.T) {
 	// Ensure all test key is deleted
 	checkValues, err = store.BatchGet(ctx, testKeys, math.MaxUint64)
 	assert.Nil(t, err)
-	for _, value := range checkValues{
+	for _, value := range checkValues {
 		assert.Nil(t, value)
 	}
 
@@ -170,9 +170,7 @@ func TestTikvStore_Batch(t *testing.T) {
 	// Ensure all test key is deleted
 	checkValues, err = store.BatchGet(ctx, testKeys, math.MaxUint64)
 	assert.Nil(t, err)
-	for _, value := range checkValues{
+	for _, value := range checkValues {
 		assert.Nil(t, value)
 	}
 }
-
-
