@@ -167,7 +167,7 @@ func main() {
 	myflag.StringVar(&sizeArg, "z", "0.1K", "Size of objects in bytes with postfix K, M, and G")
 	myflag.StringVar(&storeType, "s", "tikv", "Storage type, tikv or minio")
 	myflag.IntVar(&numVersion, "v", 1, "Max versions for each key")
-	myflag.IntVar(&batchOpSize, "b", 10, "Batch operation kv pair number")
+	myflag.IntVar(&batchOpSize, "b", 100, "Batch operation kv pair number")
 
 	if err := myflag.Parse(os.Args[1:]); err != nil {
 		os.Exit(1)
