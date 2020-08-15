@@ -240,8 +240,8 @@ func main() {
 		setTime := setFinish.Sub(startTime).Seconds()
 
 		bps := float64(uint64(counter)*valueSize) / setTime
-		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: PUT time %.1f secs, kv pairs = %d, speed = %sB/sec, %.1f operations/sec.\n",
-			loop, setTime, counter, bytefmt.ByteSize(uint64(bps)), float64(counter)/setTime))
+		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: PUT time %.1f secs, kv pairs = %d, speed = %sB/sec, %.1f operations/sec, %.1f kv/sec.\n",
+			loop, setTime, counter, bytefmt.ByteSize(uint64(bps)), float64(counter)/setTime, float64(counter)/setTime))
 
 		// Run the batchSet case
 		// key seq start from setCount
@@ -256,8 +256,8 @@ func main() {
 
 		setTime = setFinish.Sub(startTime).Seconds()
 		bps = float64(uint64(counter)*valueSize*uint64(batchOpSize)) / setTime
-		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: BATCH PUT time %.1f secs, batchs = %d, kv pairs = %d, speed = %sB/sec, %.1f operations/sec.\n",
-			loop, setTime, counter, counter*int32(batchOpSize), bytefmt.ByteSize(uint64(bps)), float64(counter)/setTime))
+		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: BATCH PUT time %.1f secs, batchs = %d, kv pairs = %d, speed = %sB/sec, %.1f operations/sec, %.1f kv/sec.\n",
+			loop, setTime, counter, counter*int32(batchOpSize), bytefmt.ByteSize(uint64(bps)), float64(counter)/setTime, float64(counter * int32(batchOpSize))/setTime))
 
 		// Record all test keys
 		totalKeyCount = keyNum
@@ -278,8 +278,8 @@ func main() {
 
 		getTime := getFinish.Sub(startTime).Seconds()
 		bps = float64(uint64(counter)*valueSize) / getTime
-		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: GET time %.1f secs, kv pairs = %d, speed = %sB/sec, %.1f operations/sec.\n",
-			loop, getTime, counter, bytefmt.ByteSize(uint64(bps)), float64(counter)/getTime))
+		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: GET time %.1f secs, kv pairs = %d, speed = %sB/sec, %.1f operations/sec, %.1f kv/sec.\n",
+			loop, getTime, counter, bytefmt.ByteSize(uint64(bps)), float64(counter)/getTime, float64(counter)/getTime))
 
 		// Run the batchGet case
 		counter = 0
@@ -293,8 +293,8 @@ func main() {
 
 		getTime = getFinish.Sub(startTime).Seconds()
 		bps = float64(uint64(counter)*valueSize*uint64(batchOpSize)) / getTime
-		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: BATCH GET time %.1f secs, batchs = %d, kv pairs = %d, speed = %sB/sec, %.1f operations/sec.\n",
-			loop, getTime, counter, counter*int32(batchOpSize), bytefmt.ByteSize(uint64(bps)), float64(counter)/getTime))
+		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: BATCH GET time %.1f secs, batchs = %d, kv pairs = %d, speed = %sB/sec, %.1f operations/sec, %.1f kv/sec.\n",
+			loop, getTime, counter, counter*int32(batchOpSize), bytefmt.ByteSize(uint64(bps)), float64(counter)/getTime, float64(counter * int32(batchOpSize))/getTime))
 
 		// Run the delete case
 		counter = 0
@@ -308,8 +308,8 @@ func main() {
 
 		deleteTime := deleteFinish.Sub(startTime).Seconds()
 		bps = float64(uint64(counter)*valueSize) / deleteTime
-		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: Delete time %.1f secs, kv pairs = %d, %.1f operations/sec.\n",
-			loop, deleteTime, counter, float64(counter)/deleteTime))
+		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: Delete time %.1f secs, kv pairs = %d, %.1f operations/sec, %.1f kv/sec.\n",
+			loop, deleteTime, counter, float64(counter)/deleteTime, float64(counter)/deleteTime))
 
 		// Run the batchDelete case
 		counter = 0
@@ -323,8 +323,8 @@ func main() {
 
 		deleteTime = setFinish.Sub(startTime).Seconds()
 		bps = float64(uint64(counter)*valueSize*uint64(batchOpSize)) / setTime
-		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: BATCH DELETE time %.1f secs, batchs = %d, kv pairs = %d, %.1f operations/sec.\n",
-			loop, setTime, counter, counter*int32(batchOpSize), float64(counter)/setTime))
+		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: BATCH DELETE time %.1f secs, batchs = %d, kv pairs = %d, %.1f operations/sec, %.1f kv/sec.\n",
+			loop, setTime, counter, counter*int32(batchOpSize), float64(counter)/setTime, float64(counter * int32(batchOpSize))/setTime))
 
 		// Print line mark
 		lineMark := "\n"
