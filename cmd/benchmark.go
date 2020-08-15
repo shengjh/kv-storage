@@ -22,8 +22,7 @@ var durationSecs, threads, loops, numVersion, batchOpSize int
 var valueSize uint64
 var valueData []byte
 var batchValueData [][]byte
-var setCount, getCount, deleteCount, setFailedCount, getFailedCount, deleteFailedCount, keyNum int32
-var batchSetCount, batchGetCount, batchDeleteCount, totalKeyCount int32
+var counter, totalKeyCount, keyNum int32
 var endTime, setFinish, getFinish, deleteFinish time.Time
 var totalKeys [][]byte
 
@@ -38,7 +37,7 @@ func runSet() {
 		num := atomic.AddInt32(&keyNum, 1)
 		key := []byte(fmt.Sprint("key", num))
 		for ver := 1; ver <= numVersion; ver++ {
-			atomic.AddInt32(&setCount, 1)
+			atomic.AddInt32(&counter, 1)
 			err := store.Set(context.Background(), key, valueData, uint64(ver))
 			if err != nil {
 				log.Fatalf("Error setting key %s, %s", key, err.Error())
@@ -59,7 +58,7 @@ func runBatchSet() {
 			keys[n-1] = []byte(fmt.Sprint("key", num-int32(n)))
 		}
 		for ver := 1; ver <= numVersion; ver++ {
-			atomic.AddInt32(&batchSetCount, 1)
+			atomic.AddInt32(&counter, 1)
 			err := store.BatchSet(context.Background(), keys, batchValueData, uint64(numVersion))
 			if err != nil {
 				log.Fatalf("Error setting batch keys %s %s", keys, err.Error())
@@ -73,8 +72,8 @@ func runBatchSet() {
 
 func runGet() {
 	for time.Now().Before(endTime) {
-		atomic.AddInt32(&getCount, 1)
-		num := atomic.AddInt32(&keyNum, 1)
+		num := atomic.AddInt32(&counter, 1)
+		//num := atomic.AddInt32(&keyNum, 1)
 		//key := []byte(fmt.Sprint("key", num))
 		num = num % totalKeyCount
 		key := totalKeys[num]
@@ -102,7 +101,7 @@ func runBatchGet() {
 		}
 		start := end - int32(batchOpSize)
 		keys := totalKeys[start:end]
-		atomic.AddInt32(&batchGetCount, 1)
+		atomic.AddInt32(&counter, 1)
 		_, err := store.BatchGet(context.Background(), keys, uint64(numVersion))
 		if err != nil {
 			log.Fatalf("Error getting key %s, %s", keys, err.Error())
@@ -116,8 +115,8 @@ func runBatchGet() {
 
 func runDelete() {
 	for time.Now().Before(endTime) {
-		atomic.AddInt32(&deleteCount, 1)
-		num := atomic.AddInt32(&keyNum, 1)
+		num := atomic.AddInt32(&counter, 1)
+		//num := atomic.AddInt32(&keyNum, 1)
 		//key := []byte(fmt.Sprint("key", num))
 		num = num % totalKeyCount
 		key := totalKeys[num]
@@ -145,7 +144,7 @@ func runBatchDelete() {
 		}
 		start := end - int32(batchOpSize)
 		keys := totalKeys[start:end]
-		atomic.AddInt32(&batchDeleteCount, 1)
+		atomic.AddInt32(&counter, 1)
 		err := store.BatchDelete(context.Background(), keys, uint64(numVersion))
 		if err != nil {
 			log.Fatalf("Error getting key %s, %s", keys, err.Error())
@@ -224,15 +223,7 @@ func main() {
 	for loop := 1; loop <= loops; loop++ {
 
 		// reset counters
-		setCount = 0
-		batchSetCount = 0
-		setFailedCount = 0
-		getCount = 0
-		batchSetCount = 0
-		getFailedCount = 0
-		deleteCount = 0
-		batchDeleteCount = 0
-		deleteFailedCount = 0
+		counter = 0
 		keyNum = 0
 		totalKeyCount = 0
 		totalKeys = nil
@@ -246,18 +237,15 @@ func main() {
 		}
 		wg.Wait()
 
-		if setCount != keyNum{
-			panic("err1")
-		}
-
 		setTime := setFinish.Sub(startTime).Seconds()
 
-		bps := float64(uint64(setCount)*valueSize) / setTime
-		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: PUT time %.1f secs, kv pairs = %d, speed = %sB/sec, %.1f operations/sec. Failes = %d \n",
-			loop, setTime, setCount, bytefmt.ByteSize(uint64(bps)), float64(setCount)/setTime, setFailedCount))
+		bps := float64(uint64(counter)*valueSize) / setTime
+		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: PUT time %.1f secs, kv pairs = %d, speed = %sB/sec, %.1f operations/sec.\n",
+			loop, setTime, counter, bytefmt.ByteSize(uint64(bps)), float64(counter)/setTime))
 
 		// Run the batchSet case
 		// key seq start from setCount
+		counter = 0
 		startTime = time.Now()
 		endTime = startTime.Add(time.Second * time.Duration(durationSecs))
 		for n := 1; n <= threads; n++ {
@@ -266,14 +254,10 @@ func main() {
 		}
 		wg.Wait()
 
-		if keyNum != setCount + int32(batchOpSize) * batchSetCount{
-			panic("err2")
-		}
-
 		setTime = setFinish.Sub(startTime).Seconds()
-		bps = float64(uint64(batchSetCount)*valueSize*uint64(batchOpSize)) / setTime
-		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: BATCH PUT time %.1f secs, batchs = %d, kv pairs = %d, speed = %sB/sec, %.1f operations/sec. Failes = %d \n",
-			loop, setTime, batchSetCount, batchSetCount*int32(batchOpSize), bytefmt.ByteSize(uint64(bps)), float64(batchSetCount)/setTime, setFailedCount))
+		bps = float64(uint64(counter)*valueSize*uint64(batchOpSize)) / setTime
+		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: BATCH PUT time %.1f secs, batchs = %d, kv pairs = %d, speed = %sB/sec, %.1f operations/sec.\n",
+			loop, setTime, counter, counter*int32(batchOpSize), bytefmt.ByteSize(uint64(bps)), float64(counter)/setTime))
 
 		// Record all test keys
 		totalKeyCount = keyNum
@@ -283,7 +267,7 @@ func main() {
 		}
 
 		// Run the get case
-		keyNum = 0
+		counter = 0
 		startTime = time.Now()
 		endTime = startTime.Add(time.Second * time.Duration(durationSecs))
 		for n := 1; n <= threads; n++ {
@@ -293,12 +277,12 @@ func main() {
 		wg.Wait()
 
 		getTime := getFinish.Sub(startTime).Seconds()
-		bps = float64(uint64(getCount)*valueSize) / getTime
-		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: GET time %.1f secs, kv pairs = %d, speed = %sB/sec, %.1f operations/sec. Failes = %d \n",
-			loop, getTime, getCount, bytefmt.ByteSize(uint64(bps)), float64(getCount)/getTime, getFailedCount))
+		bps = float64(uint64(counter)*valueSize) / getTime
+		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: GET time %.1f secs, kv pairs = %d, speed = %sB/sec, %.1f operations/sec.\n",
+			loop, getTime, counter, bytefmt.ByteSize(uint64(bps)), float64(counter)/getTime))
 
 		// Run the batchGet case
-		keyNum = 0
+		counter = 0
 		startTime = time.Now()
 		endTime = startTime.Add(time.Second * time.Duration(durationSecs))
 		for n := 1; n <= threads; n++ {
@@ -308,12 +292,12 @@ func main() {
 		wg.Wait()
 
 		getTime = getFinish.Sub(startTime).Seconds()
-		bps = float64(uint64(batchGetCount)*valueSize*uint64(batchOpSize)) / getTime
-		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: BATCH GET time %.1f secs, batchs = %d, kv pairs = %d, speed = %sB/sec, %.1f operations/sec. Failes = %d \n",
-			loop, getTime, batchGetCount, batchGetCount*int32(batchOpSize), bytefmt.ByteSize(uint64(bps)), float64(batchGetCount)/getTime, setFailedCount))
+		bps = float64(uint64(counter)*valueSize*uint64(batchOpSize)) / getTime
+		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: BATCH GET time %.1f secs, batchs = %d, kv pairs = %d, speed = %sB/sec, %.1f operations/sec.\n",
+			loop, getTime, counter, counter*int32(batchOpSize), bytefmt.ByteSize(uint64(bps)), float64(counter)/getTime))
 
 		// Run the delete case
-		keyNum = 0
+		counter = 0
 		startTime = time.Now()
 		endTime = startTime.Add(time.Second * time.Duration(durationSecs))
 		for n := 1; n <= threads; n++ {
@@ -323,12 +307,12 @@ func main() {
 		wg.Wait()
 
 		deleteTime := deleteFinish.Sub(startTime).Seconds()
-		bps = float64(uint64(deleteCount)*valueSize) / deleteTime
-		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: Delete time %.1f secs, kv pairs = %d, %.1f operations/sec. Failes = %d \n",
-			loop, deleteTime, deleteCount, float64(deleteCount)/deleteTime, deleteFailedCount))
+		bps = float64(uint64(counter)*valueSize) / deleteTime
+		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: Delete time %.1f secs, kv pairs = %d, %.1f operations/sec.\n",
+			loop, deleteTime, counter, float64(counter)/deleteTime))
 
 		// Run the batchDelete case
-		keyNum = 0
+		counter = 0
 		startTime = time.Now()
 		endTime = startTime.Add(time.Second * time.Duration(durationSecs))
 		for n := 1; n <= threads; n++ {
@@ -338,9 +322,9 @@ func main() {
 		wg.Wait()
 
 		deleteTime = setFinish.Sub(startTime).Seconds()
-		bps = float64(uint64(batchDeleteCount)*valueSize*uint64(batchOpSize)) / setTime
-		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: BATCH DELETE time %.1f secs, batchs = %d, kv pairs = %d, %.1f operations/sec. Failes = %d \n",
-			loop, setTime, batchDeleteCount, batchDeleteCount*int32(batchOpSize), float64(batchDeleteCount)/setTime, setFailedCount))
+		bps = float64(uint64(counter)*valueSize*uint64(batchOpSize)) / setTime
+		fmt.Fprint(logFile, fmt.Sprintf("Loop %d: BATCH DELETE time %.1f secs, batchs = %d, kv pairs = %d, %.1f operations/sec.\n",
+			loop, setTime, counter, counter*int32(batchOpSize), float64(counter)/setTime))
 
 		// Print line mark
 		lineMark := "\n"
