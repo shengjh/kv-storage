@@ -164,7 +164,7 @@ func main() {
 	myflag.IntVar(&loops, "l", 1, "Number of times to repeat test")
 	var sizeArg string
 	var storeType string
-	myflag.StringVar(&sizeArg, "z", "0.1K", "Size of objects in bytes with postfix K, M, and G")
+	myflag.StringVar(&sizeArg, "z", "1K", "Size of objects in bytes with postfix K, M, and G")
 	myflag.StringVar(&storeType, "s", "tikv", "Storage type, tikv or minio")
 	myflag.IntVar(&numVersion, "v", 1, "Max versions for each key")
 	myflag.IntVar(&batchOpSize, "b", 100, "Batch operation kv pair number")
