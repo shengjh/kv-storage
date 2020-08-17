@@ -2,11 +2,11 @@ package tikv_driver
 
 import (
 	"context"
-	"math"
 	"github.com/tikv/client-go/config"
 	"github.com/tikv/client-go/rawkv"
-	. "storage/pkg/types"
+	"math"
 	. "storage/internal/tikv/codec"
+	. "storage/pkg/types"
 )
 
 type tikvStore struct {
@@ -74,11 +74,11 @@ func (s *tikvStore) BatchGet(ctx context.Context, keys []Key, timestamp Timestam
 
 func (s *tikvStore) Delete(ctx context.Context, key Key, timestamp Timestamp) error {
 	end := keyAddDelimiter(key)
-	err := s.client.DeleteRange(ctx, MvccEncode(key, timestamp), MvccEncode(end, math.MaxUint64))
+	err := s.client.DeleteRange(ctx, MvccEncode(key, timestamp), MvccEncode(end, uint64(0)))
 	return err
 }
 
-func (s *tikvStore) BatchDelete(ctx context.Context, keys []Key, timestamp Timestamp) error {
+func (s *tikvStore) BatchDeleteDeprecated(ctx context.Context, keys []Key, timestamp Timestamp) error {
 	var key Key
 	var err error
 
@@ -91,23 +91,29 @@ func (s *tikvStore) BatchDelete(ctx context.Context, keys []Key, timestamp Times
 	return err
 }
 
-var batchSize = 5
+var batchSize = 1
 
 type batch struct {
 	keys   []Key
 	values []Value
 }
 
-func (s *tikvStore) BatchDeleteMultiRoutine(ctx context.Context, keys []Key, timestamp Timestamp) error {
+func (s *tikvStore) BatchDelete(ctx context.Context, keys []Key, timestamp Timestamp) error {
 	var key Key
 	var err error
 
 	keysLen := len(keys)
-	batches := make([]batch, (keysLen-1)/batchSize+1)
+	numBatch := (keysLen-1)/batchSize + 1
+	batches := make([][]Key, numBatch)
 
-	for i, key := range keys {
-		batchNum := i / batchSize
-		batches[batchNum].keys = append(batches[batchNum].keys, key)
+	for i := 0; i < numBatch; i++ {
+		batchStart := i * batchSize
+		batchEnd := batchStart + batchSize
+		// the last batch
+		if i == numBatch-1 {
+			batchEnd = keysLen
+		}
+		batches[i] = keys[batchStart:batchEnd]
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -115,7 +121,7 @@ func (s *tikvStore) BatchDeleteMultiRoutine(ctx context.Context, keys []Key, tim
 	for _, batch := range batches {
 		batch1 := batch
 		go func() {
-			for _, key = range batch1.keys {
+			for _, key = range batch1 {
 				ch <- s.Delete(ctx, key, timestamp)
 			}
 		}()

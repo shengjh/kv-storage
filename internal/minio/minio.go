@@ -35,6 +35,18 @@ func NewMinIOStore(ctx context.Context) (*minioStore, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	bucketExists, err := minioClient.BucketExists(ctx, bucketName)
+	if err != nil {
+		return nil, err
+	}
+
+	if !bucketExists {
+		err = minioClient.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{})
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &minioStore{
 		client: minioClient,
 	}, nil
@@ -60,25 +72,44 @@ func (s *minioStore) Get(ctx context.Context, key Key, timestamp uint64) (Value,
 			fmt.Println(err)
 			return nil, err
 		}
-		return buf[:n], err
+		return buf[:n], nil
 	}
 
 	return nil, nil
 }
 
 func (s *minioStore) BatchGet(ctx context.Context, keys []Key, timestamp uint64) ([]Value, error) {
-	var values []Value
 
-	for i := 0; i < len(keys); i++ {
-		object, err := s.Get(ctx, keys[i], timestamp)
-		if err != nil && err != io.EOF {
-			fmt.Println(err)
-			values = append(values, nil)
-			return nil, err
-		} else {
-			values = append(values, object)
+	errCh := make(chan error)
+	valueLenth := len(keys)
+	values := make([]Value, valueLenth)
+	f := func(ctx context.Context, keys []Key, values []Value, timestamp uint64) {
+		for i := 0; i < len(keys); i++ {
+			value, err := s.Get(ctx, keys[i], timestamp)
+			values[i] = value
+			errCh <- err
 		}
 	}
+
+	batchSize, batchNums := optimalArgs(len(keys))
+
+	for i := 0; i < batchNums; i++ {
+		j := i
+		go func() {
+			start, end := j*batchSize, (j+1)*batchSize
+			if len(keys) < end {
+				end = len(keys)
+			}
+			f(ctx, keys[start:end], values, timestamp)
+		}()
+	}
+
+	for i := 0; i < len(keys); i++ {
+		if err := <- errCh; err != nil {
+			return values, err
+		}
+	}
+
 
 	return values, nil
 }
@@ -87,21 +118,39 @@ func (s *minioStore) Set(ctx context.Context, key Key, v Value, timestamp uint64
 	minioKey := codec.MvccEncode(key, timestamp)
 
 	reader := bytes.NewReader(v)
-	uploadInfo, err := s.client.PutObject(ctx, bucketName, minioKey, reader, int64(len(v)), minio.PutObjectOptions{})
+	_, err := s.client.PutObject(ctx, bucketName, minioKey, reader, int64(len(v)), minio.PutObjectOptions{})
 
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(uploadInfo)
 	return err
 }
 
 func (s *minioStore) BatchSet(ctx context.Context, keys []Key, values []Value, timestamp uint64) error {
 
+	errCh := make(chan error)
+	f := func(ctx context.Context, keys []Key, values []Value, timestamp uint64) {
+		for i := 0; i < len(keys); i++ {
+			errCh <- s.Set(ctx, keys[i], values[i], timestamp)
+		}
+	}
+
+	batchSize, batchNums := optimalArgs(len(keys))
+
+	for i := 0; i < batchNums; i++ {
+		j := i
+		go func() {
+			start, end := j*batchSize, (j+1)*batchSize
+			if len(keys) < end {
+				end = len(keys)
+			}
+			f(ctx, keys[start:end], values[start:end], timestamp)
+		}()
+	}
+
 	for i := 0; i < len(keys); i++ {
-		err := s.Set(ctx, keys[i], values[i], timestamp)
-		if err != nil {
+		if err := <- errCh; err != nil {
 			return err
 		}
 	}
@@ -133,10 +182,27 @@ func (s *minioStore) Delete(ctx context.Context, key Key, timestamp uint64) erro
 
 func (s *minioStore) BatchDelete(ctx context.Context, keys []Key, timestamp uint64) error {
 
+	errCh := make(chan error)
+	f := func(ctx context.Context, keys []Key, timestamp uint64) {
+		for i := 0; i < len(keys); i++ {
+			errCh <- s.Delete(ctx, keys[i], timestamp)
+		}
+	}
+
+	batchSize, batchNums := optimalArgs(len(keys))
+	for i := 0; i < batchNums; i++ {
+		j := i
+		go func() {
+			start, end := j*batchSize, (j+1)*batchSize
+			if len(keys) < end {
+				end = len(keys)
+			}
+			f(ctx, keys[start:end], timestamp)
+		}()
+	}
+
 	for i := 0; i < len(keys); i++ {
-		err := s.Delete(ctx, keys[i], timestamp)
-		if err != nil {
-			fmt.Println(err)
+		if err := <- errCh; err != nil {
 			return err
 		}
 	}
@@ -154,9 +220,7 @@ func (s *minioStore) listObjectsKeys(ctx context.Context, key Key, timestamp uin
 		for object := range s.client.ListObjects(ctx, bucketName, minio.ListObjectsOptions{Prefix: string(key)}){
 			if object.Err != nil {
 				fmt.Println(object.Err)
-				objectsCh <- minio.ObjectInfo{
-
-				}
+				objectsCh <- object
 			}
 			splitKey := strings.Split(object.Key, "_")
 			if string(key) == strings.Join(splitKey[:len(splitKey)-1], "_") {
@@ -172,4 +236,21 @@ func (s *minioStore) listObjectsKeys(ctx context.Context, key Key, timestamp uin
 
 func (s *minioStore) Close() error{
 	return nil
+}
+
+func optimalArgs(keysLength int) (batchSize int, batchNums int) {
+	maxThread := 500
+	batchSize = 1
+
+	if keysLength / batchSize > maxThread {
+		batchSize = keysLength / maxThread
+	}
+
+	batchNums = keysLength / batchSize
+
+	if keysLength % batchSize != 0 {
+		batchNums = keysLength / batchSize + 1
+	}
+
+	return batchSize, batchNums
 }
