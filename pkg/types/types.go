@@ -38,7 +38,7 @@ type StoreEngine interface {
 }
 
 type Store interface {
-	RawBatchGet(ctx context.Context, key Key) []Value
+	RawBatchGet(ctx context.Context, keys []Key) []Value
 	RawGet(ctx context.Context, key Key) Value
 	RawPut(ctx context.Context, key Key, value Value)
 
