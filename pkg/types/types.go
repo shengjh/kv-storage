@@ -5,7 +5,9 @@ import "context"
 type Key = []byte
 type Value = []byte
 type Timestamp = uint64
-type DriverType string
+type DriverType=string
+type SegmentIndex = []byte
+type SegmentDL=[]byte
 
 const (
 	MinIODriver DriverType = "MinIO"
@@ -24,7 +26,7 @@ type Store interface {
 }
 */
 
-type StoreEngine interface {
+type storeEngine interface {
 	PUT(ctx context.Context, key Key, value Value)
 	GET(ctx context.Context, key Key) Value
 
@@ -38,28 +40,34 @@ type StoreEngine interface {
 }
 
 type Store interface {
-	RawBatchGet(ctx context.Context, keys []Key) []Value
-	RawGet(ctx context.Context, key Key) Value
-	RawPut(ctx context.Context, key Key, value Value)
+	put(ctx context.Context, key Key, value Value, timestamp Timestamp, suffix string)
 
-	RawDeleteAll(ctx context.Context, key Key)
-	RawDelete(ctx context.Context, key Key)
+	GetRow(ctx context.Context, key Key, timestamp Timestamp) Value
+	GetRows(ctx context.Context, keys []Key, timestamp Timestamp) []Value
 
-	Get(ctx context.Context, key Key, timestamp Timestamp) Value
-	BatchGet(ctx context.Context, keys []Key, timestamp Timestamp) []Value
+	AddRow(ctx context.Context, key Key, value Value, segment string, timestamp Timestamp) error
+	AddRows(ctx context.Context, keys []Key, values []Value, segments []string, timestamp Timestamp) error
 
-	GetAll(ctx context.Context, key Key, withValue bool) ([]Timestamp, []Key, []Value)
+	DeleteRow(ctx context.Context, key Key, timestamp Timestamp)
+	DeleteRows(ctx context.Context, keys []Key, timestamp Timestamp)
 
-	ScanLE(ctx context.Context, key Key, timestamp Timestamp, withValue bool) ([]Timestamp, []Key, []Value)
-	ScanGE(ctx context.Context, key Key, timestamp Timestamp, withValue bool) ([]Timestamp, []Key, []Value)
-	ScanRange(ctx context.Context, key Key, start Timestamp, end Timestamp, withValue bool) ([]Timestamp, []Key, []Value)
+	scanLE(ctx context.Context, key Key, timestamp Timestamp, withValue bool) ([]Timestamp, []Key, []Value)
+	scanGE(ctx context.Context, key Key, timestamp Timestamp, withValue bool) ([]Timestamp, []Key, []Value)
+	scan(ctx context.Context, key Key, start Timestamp, end Timestamp, withValue bool) ([]Timestamp, []Key, []Value)
 
-	PUT(ctx context.Context, key Key, value Value, timestamp Timestamp, suffix string)
+	deleteLE(ctx context.Context, key Key, timestamp Timestamp)
+	deleteGE(ctx context.Context, key Key, timestamp Timestamp)
+	rangeDelete(ctx context.Context, key Key, start Timestamp, end Timestamp)
 
-	DeleteLE(ctx context.Context, key Key, timestamp Timestamp)
-	DeleteGE(ctx context.Context, key Key, timestamp Timestamp)
-	RangeDelete(ctx context.Context, key Key, start Timestamp, end Timestamp)
-
-	LogPut(ctx context.Context, key Key, value Value, timestamp Timestamp, suffix string)
+	LogPut(ctx context.Context, key Key, value Value, timestamp Timestamp, channel int)
 	LogFetch(ctx context.Context, start Timestamp, end Timestamp, channels []int)
+
+	GetSegmenIndex(ctx context.Context, segment string) SegmentIndex
+	PutSegmentIndex(ctx context.Context, segment string, index SegmentIndex)
+	DeleteSegmentIndex(ctx context.Context, segment string)
+
+	GetSegmentDL(ctx context.Context, segment string) SegmentDL
+	SetSegmentDL(ctx context.Context, segment string, log SegmentDL)
+	DeleteSegmentDL(ctx context.Context, segment string)
+
 }
