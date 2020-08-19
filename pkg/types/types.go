@@ -5,9 +5,9 @@ import "context"
 type Key = []byte
 type Value = []byte
 type Timestamp = uint64
-type DriverType=string
+type DriverType = string
 type SegmentIndex = []byte
-type SegmentDL=[]byte
+type SegmentDL = []byte
 
 const (
 	MinIODriver DriverType = "MinIO"
@@ -41,6 +41,12 @@ type storeEngine interface {
 
 type Store interface {
 	put(ctx context.Context, key Key, value Value, timestamp Timestamp, suffix string)
+	scanLE(ctx context.Context, key Key, timestamp Timestamp, withValue bool) ([]Timestamp, []Key, []Value)
+	scanGE(ctx context.Context, key Key, timestamp Timestamp, withValue bool) ([]Timestamp, []Key, []Value)
+	scan(ctx context.Context, key Key, start Timestamp, end Timestamp, withValue bool) ([]Timestamp, []Key, []Value)
+	deleteLE(ctx context.Context, key Key, timestamp Timestamp)
+	deleteGE(ctx context.Context, key Key, timestamp Timestamp)
+	rangeDelete(ctx context.Context, key Key, start Timestamp, end Timestamp)
 
 	GetRow(ctx context.Context, key Key, timestamp Timestamp) Value
 	GetRows(ctx context.Context, keys []Key, timestamp Timestamp) []Value
@@ -50,14 +56,6 @@ type Store interface {
 
 	DeleteRow(ctx context.Context, key Key, timestamp Timestamp)
 	DeleteRows(ctx context.Context, keys []Key, timestamp Timestamp)
-
-	scanLE(ctx context.Context, key Key, timestamp Timestamp, withValue bool) ([]Timestamp, []Key, []Value)
-	scanGE(ctx context.Context, key Key, timestamp Timestamp, withValue bool) ([]Timestamp, []Key, []Value)
-	scan(ctx context.Context, key Key, start Timestamp, end Timestamp, withValue bool) ([]Timestamp, []Key, []Value)
-
-	deleteLE(ctx context.Context, key Key, timestamp Timestamp)
-	deleteGE(ctx context.Context, key Key, timestamp Timestamp)
-	rangeDelete(ctx context.Context, key Key, start Timestamp, end Timestamp)
 
 	LogPut(ctx context.Context, key Key, value Value, timestamp Timestamp, channel int)
 	LogFetch(ctx context.Context, start Timestamp, end Timestamp, channels []int)
@@ -69,5 +67,4 @@ type Store interface {
 	GetSegmentDL(ctx context.Context, segment string) SegmentDL
 	SetSegmentDL(ctx context.Context, segment string, log SegmentDL)
 	DeleteSegmentDL(ctx context.Context, segment string)
-
 }
