@@ -2,10 +2,10 @@ package storage
 
 import (
 	"context"
-	"storage/pkg/types"
-	tikvDriver "storage/internal/tikv"
-	minIODriver "storage/internal/minio"
 	"errors"
+	minIODriver "storage/internal/minio"
+	tikvDriver "storage/internal/tikv"
+	"storage/pkg/types"
 )
 
 func NewStore(ctx context.Context, driver types.DriverType) (types.Store, error) {
@@ -27,5 +27,5 @@ func NewStore(ctx context.Context, driver types.DriverType) (types.Store, error)
 		}
 		return store, nil
 	}
-	return nil, errors.New("Unsupported Driver")
+	return nil, errors.New("unsupported driver")
 }

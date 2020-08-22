@@ -6,23 +6,55 @@ import (
 	"github.com/tikv/client-go/codec"
 )
 
-// MvccEncode returns the encoded key.
-func MvccEncode(key []byte, ts uint64) []byte {
+var (
+	Delimiter        = byte('_')
+	DelimiterPlusOne = Delimiter + 0x01
+	DeleteMark       = byte('d')
+	SegmentIndexMark = byte('i')
+	SegmentDLMark    = byte('d')
+)
+
+// EncodeKey append timestamp, delimiter, and suffix string
+// to one slice key.
+func EncodeKey(key []byte, timestamp uint64, suffix string) []byte {
 	//TODO: should we encode key to memory comparable
-	b := codec.EncodeBytes(key)
-	ret := codec.EncodeUintDesc(b, ts)
-	return ret
+	ret := EncodeDelimiter(key, Delimiter)
+	ret = codec.EncodeUintDesc(ret, timestamp)
+	return append(ret, suffix...)
 }
 
-func MvccDecode(b []byte) ([]byte, uint64, error) {
-	if len(b) < 8 {
-		return nil, 0, errors.New("insufficient bytes to decode value")
+func DecodeKey(key []byte) ([]byte, uint64, string, error) {
+	if len(key) < 8 {
+		return nil, 0, "", errors.New("insufficient bytes to decode value")
 	}
 
-	data := b[len(b)-8:]
-	ts := binary.BigEndian.Uint64(data)
-	b = b[:len(b)-8]
-	var err error
-	_, b, err = codec.DecodeBytes(b)
-	return b, ^ts, err
+	lenDeKey := 0
+	for i := len(key) - 1; i > 0; i-- {
+		if key[i] == Delimiter {
+			lenDeKey = i
+			break
+		}
+	}
+
+	if lenDeKey == 0 || lenDeKey+8 > len(key) {
+		return nil, 0, "", errors.New("insufficient bytes to decode value")
+	}
+
+	tsBytes := key[lenDeKey+1 : lenDeKey+9]
+	ts := binary.BigEndian.Uint64(tsBytes)
+	suffix := string(key[lenDeKey+9:])
+	key = key[:lenDeKey-1]
+	return key, ^ts, suffix, nil
+}
+
+// EncodeDelimiter append a delimiter byte to slice b, and return the appended slice.
+func EncodeDelimiter(b []byte, delimiter byte) []byte {
+	return append(b, delimiter)
+}
+
+func EncodeSegment(segName []byte, segType byte) []byte {
+	segmentKey := []byte("segment")
+	segmentKey = append(segmentKey, Delimiter)
+	segmentKey = append(segmentKey, segName...)
+	return append(segmentKey, Delimiter, segType)
 }
