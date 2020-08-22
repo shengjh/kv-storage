@@ -86,8 +86,8 @@ func TestTikvStore_Row(t *testing.T) {
 	assert.Equal(t, Value("value0"), v)
 
 	// Add a different row, but with same prefix
-	key1 := Key("keyy")
-	err = store.PutRow(ctx, key1, Value("valuey0"), "segment0", 2)
+	key1 := Key("key_y")
+	err = store.PutRow(ctx, key1, Value("valuey"), "segment0", 2)
 	assert.Nil(t, err)
 
 	// Get most recent row using key and timestamp
@@ -96,7 +96,7 @@ func TestTikvStore_Row(t *testing.T) {
 	assert.Equal(t, Value("value1"), v)
 	v, err = store.GetRow(ctx, key1, 3)
 	assert.Nil(t, err)
-	assert.Equal(t, Value("valuey0"), v)
+	assert.Equal(t, Value("valuey"), v)
 
 	// Delete a row
 	err = store.DeleteRow(ctx, key, 4)
@@ -161,59 +161,6 @@ func TestTikvStore_BatchRow(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-//func TestTikvStore_Simple(t *testing.T) {
-//	// Set some key-value pair with different timestamp
-//	ctx := context.Background()
-//	key := Key("key")
-//
-//	// Clean kv data
-//	err := store.Delete(ctx, key, math.MaxUint64)
-//	assert.Nil(t, err)
-//
-//	// Ensure test data is not exist
-//	v, err := store.Get(ctx, key, math.MaxUint64)
-//	assert.Nil(t, v)
-//	assert.Nil(t, err)
-//
-//	// Set value for key with multi-timestamp
-//	err = store.Set(ctx, key, Value("value_1"), 1)
-//	assert.Nil(t, err)
-//	err = store.Set(ctx, key, Value("value_2"), 2)
-//	assert.Nil(t, err)
-//	err = store.Set(ctx, key, Value("value_3"), 3)
-//	assert.Nil(t, err)
-//
-//	// Get value for multi-timestamp
-//	v, err = store.Get(ctx, key, 1)
-//	assert.Nil(t, err)
-//	assert.Equal(t, Value("value_1"), v)
-//
-//	v, err = store.Get(ctx, key, 2)
-//	assert.Nil(t, err)
-//	assert.Equal(t, Value("value_2"), v)
-//
-//	v, err = store.Get(ctx, key, 3)
-//	assert.Nil(t, err)
-//	assert.Equal(t, Value("value_3"), v)
-//
-//	v, err = store.Get(ctx, key, 4)
-//	assert.Nil(t, err)
-//	assert.Equal(t, Value("value_3"), v)
-//
-//	v, err = store.Get(ctx, key, 0)
-//	assert.Nil(t, err)
-//	assert.Nil(t, v)
-//
-//	// Delete test key
-//	err = store.Delete(ctx, key, 3)
-//	assert.Nil(t, err)
-//
-//	// Ensure all test key is deleted
-//	v, err = store.Get(ctx, key, math.MaxUint64)
-//	assert.Nil(t, v)
-//	assert.Nil(t, err)
-//}
-//
 //func TestTikvStore_PrefixKey(t *testing.T) {
 //	ctx := context.Background()
 //	key := Key("key")
