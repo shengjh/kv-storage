@@ -8,6 +8,7 @@ import (
 	. "storage/internal/tikv/codec"
 	. "storage/pkg/types"
 	"strconv"
+	"strings"
 )
 
 func keyAddOne(key Key) Key {
@@ -284,29 +285,33 @@ func (s *TikvStore) DeleteRows(ctx context.Context, keys []Key, timestamp Timest
 //}
 
 func (s *TikvStore) PutLog(ctx context.Context, key Key, value Value, timestamp Timestamp, channel int) error {
-	return s.put(ctx, Key("log"), value, timestamp, string(channel))
+	suffix := string(EncodeDelimiter(key, DelimiterPlusOne)) + strconv.Itoa(channel)
+	return s.put(ctx, Key("log"), value, timestamp, suffix)
 }
 
 func (s *TikvStore) GetLog(ctx context.Context, start Timestamp, end Timestamp, channels []int) (logs []Value, err error) {
 	key := Key("log")
-	startKey := EncodeKey(key, start, "")
-	endKey := EncodeKey(key, end, "")
+	startKey := EncodeKey(key, end, "")
+	endKey := EncodeKey(key, start, "")
 	// TODO: use for loop to ensure get all keys
 	keys, values, err := s.engine.Scan(ctx, startKey, endKey, s.engine.conf.Raw.MaxScanLimit, false)
 	if err != nil || keys == nil {
 		return nil, err
 	}
 
-	for _, value := range values {
-		log, _, suffix, err := DecodeKey(value)
+	for i, key := range keys {
+		_, _, suffix, err := DecodeKey(key)
+		log := values[i]
 		if err != nil {
 			return logs, err
 		}
+
 		// no channels filter
 		if len(channels) == 0 {
 			logs = append(logs, log)
 		}
-		channel, err := strconv.Atoi(suffix)
+		slice := strings.Split(suffix, string(DelimiterPlusOne))
+		channel, err := strconv.Atoi(slice[len(slice)-1])
 		for _, item := range channels {
 			if item == channel {
 				logs = append(logs, log)

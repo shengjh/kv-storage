@@ -16,6 +16,7 @@ var (
 
 // EncodeKey append timestamp, delimiter, and suffix string
 // to one slice key.
+// Note: suffix string should not contains Delimiter
 func EncodeKey(key []byte, timestamp uint64, suffix string) []byte {
 	//TODO: should we encode key to memory comparable
 	ret := EncodeDelimiter(key, Delimiter)

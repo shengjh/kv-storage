@@ -1,11 +1,13 @@
 package tikv_driver
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"math"
 	"os"
+	"sort"
 	. "storage/internal/tikv/codec"
 	. "storage/pkg/types"
 	"testing"
@@ -158,6 +160,31 @@ func TestTikvStore_BatchRow(t *testing.T) {
 
 	// Clean test data
 	err = store.engine.DeleteByPrefix(ctx, Key("key"))
+	assert.Nil(t, err)
+}
+
+func TestTikvStore_Log(t *testing.T) {
+	ctx := context.Background()
+
+	// Put some log
+	err := store.PutLog(ctx, Key("key1"), Value("value1"), 1, 1)
+	assert.Nil(t, err)
+	err = store.PutLog(ctx, Key("key1"), Value("value1_1"), 1, 2)
+	assert.Nil(t, err)
+	err = store.PutLog(ctx, Key("key2"), Value("value2"), 2, 1)
+	assert.Nil(t, err)
+
+	// Check log
+	log, err := store.GetLog(ctx, 0, 2, []int{1, 2})
+	sort.Slice(log, func(i, j int) bool {
+		return bytes.Compare(log[i], log[j]) == -1
+	})
+	assert.Equal(t, log[0], Value("value1"))
+	assert.Equal(t, log[1], Value("value1_1"))
+	assert.Equal(t, log[2], Value("value2"))
+
+	// Delete test data
+	err = store.engine.DeleteByPrefix(ctx, Key("log"))
 	assert.Nil(t, err)
 }
 
